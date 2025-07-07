@@ -35,21 +35,14 @@ def handle_client(sock, address):
 
     while True:
         try:
-            request_header_buf = sock.recv(REQUEST_HDR_SIZE)
+            request_header_buf = recv_exact(sock, REQUEST_HDR_SIZE)
             request_header = RequestHeader()
             request_header.parse_from_bytes(request_header_buf)
             payload = bytes()
 
-            if request_header.payload_size != 0:
-                while len(payload) < request_header.payload_size:
+            if request_header.payload_size > 0:
+                payload = recv_exact(sock, request_header.payload_size)
 
-                    if (request_header.payload_size - len(payload)) > 0:
-                        packet = sock.recv(request_header.payload_size - len(payload))
-                        if not packet:
-                            break
-                        payload += packet
-                    else:
-                        break
             if not handle_request(server, request_header, payload):
                 break
 
@@ -58,6 +51,15 @@ def handle_client(sock, address):
             break
     server.db_connection.close()
     sock.close()
+
+def recv_exact(sock, num_bytes):
+    buf = bytes()
+    while len(buf) < num_bytes:
+        chunk = sock.recv(num_bytes - len(buf))
+        if not chunk:
+            raise ConnectionError("Connection closed early.")
+        buf += chunk
+    return buf
 
 
 def main():
